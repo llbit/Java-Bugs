@@ -1,0 +1,48 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+defaultTasks 'run'
+
+mainClassName = 'javabugs.Bug1'
+
+import org.gradle.api.internal.tasks.compile.CleaningJavaCompiler
+import org.gradle.api.internal.tasks.compile.DefaultJavaCompileSpec
+import org.gradle.api.internal.tasks.compile.DefaultJavaCompileSpecFactory
+import org.gradle.api.internal.tasks.compile.JavaCompilerArgumentsBuilder
+import org.gradle.api.internal.tasks.compile.JavaCompileSpec
+import org.gradle.jvm.internal.toolchain.JavaToolChainInternal
+
+project.tasks.withType(JavaCompile, { task ->
+	task.doLast {
+	def spec = createSpec(task)
+	List<String> compilerArgs = new JavaCompilerArgumentsBuilder(spec).includeLauncherOptions(true).includeSourceFiles(true).build();
+	def argfile = file("compile-args-${name}")
+	argfile.withWriter { writer ->
+		for (arg in compilerArgs) {
+			writer.write(arg)
+			writer.write('\n')
+		}
+	}
+	println "Wrote compile arguments to ${argfile}"
+	}
+})
+
+CleaningJavaCompiler createCompiler(JavaCompileSpec spec) {
+	Compiler<JavaCompileSpec> javaCompiler = CompilerUtil.castCompiler(((JavaToolChainInternal) getToolChain()).select(getPlatform()).newCompiler(spec.getClass()));
+	return new CleaningJavaCompiler(javaCompiler, getAntBuilderFactory(), getOutputs());
+}
+
+DefaultJavaCompileSpec createSpec(task) {
+	DefaultJavaCompileSpec spec = new DefaultJavaCompileSpecFactory(task.options).create();
+	spec.setSource(task.getSource());
+	spec.setDestinationDir(task.getDestinationDir());
+	spec.setWorkingDir(project.projectDir);
+	spec.setTempDir(task.getTemporaryDir());
+	spec.setClasspath(task.getClasspath());
+	spec.setDependencyCacheDir(task.getDependencyCacheDir());
+	spec.setTargetCompatibility(task.getTargetCompatibility());
+	spec.setSourceCompatibility(task.getSourceCompatibility());
+	spec.setCompileOptions(task.options);
+	return spec;
+}
+
